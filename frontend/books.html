@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Manage Books — Library Management</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Online Library Management</h1>
+    <nav id="main-nav" class="nav"></nav>
+  </header>
+  <main class="container">
+    <div class="card">
+      <h2 id="form-title">Add Book</h2>
+      <p class="subtitle">Add new books or edit an existing record.</p>
+      <form id="book-form">
+        <input type="hidden" id="book_id" />
+        <div class="form-grid">
+          <div class="full">
+            <label for="title">Title</label>
+            <input id="title" required />
+          </div>
+          <div>
+            <label for="author">Author</label>
+            <input id="author" required />
+          </div>
+          <div>
+            <label for="category">Category</label>
+            <input id="category" required />
+          </div>
+          <div>
+            <label for="quantity">Quantity</label>
+            <input id="quantity" type="number" min="0" value="1" required />
+          </div>
+        </div>
+        <div class="actions">
+          <button type="submit" id="save-btn">Add Book</button>
+          <button type="button" class="secondary" id="reset-btn">Clear</button>
+        </div>
+      </form>
+      <div id="msg" class="msg"></div>
+    </div>
+
+    <div class="card">
+      <h2>All Books</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Title</th>
+              <th>Author</th>
+              <th>Category</th>
+              <th>Qty</th>
+              <th>Available</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="books-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script>
+    renderNav("books");
+    const msg = document.getElementById("msg");
+    const form = document.getElementById("book-form");
+
+    function resetForm() {
+      form.reset();
+      document.getElementById("book_id").value = "";
+      document.getElementById("quantity").value = "1";
+      document.getElementById("form-title").textContent = "Add Book";
+      document.getElementById("save-btn").textContent = "Add Book";
+      clearMsg(msg);
+    }
+
+    document.getElementById("reset-btn").addEventListener("click", resetForm);
+
+    async function loadBooks() {
+      const data = await api("/api/books");
+      const tbody = document.getElementById("books-body");
+      if (!data.success) {
+        tbody.innerHTML = `<tr><td colspan="7">${data.message || "Failed to load"}</td></tr>`;
+        return;
+      }
+      if (!data.books.length) {
+        tbody.innerHTML = `<tr><td colspan="7">No books yet.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = data.books
+        .map(
+          (b) => `<tr>
+            <td>${b.book_id}</td>
+            <td>${escapeHtml(b.title)}</td>
+            <td>${escapeHtml(b.author)}</td>
+            <td>${escapeHtml(b.category)}</td>
+            <td>${b.quantity}</td>
+            <td><span class="badge ${b.available_quantity > 0 ? "avail" : "unavail"}">${b.available_quantity}</span></td>
+            <td>
+              <button type="button" class="secondary" data-edit="${b.book_id}">Edit</button>
+              <button type="button" class="danger" data-del="${b.book_id}">Delete</button>
+            </td>
+          </tr>`
+        )
+        .join("");
+
+      tbody.querySelectorAll("[data-edit]").forEach((btn) => {
+        btn.addEventListener("click", () => editBook(Number(btn.getAttribute("data-edit"))));
+      });
+      tbody.querySelectorAll("[data-del]").forEach((btn) => {
+        btn.addEventListener("click", () => deleteBook(Number(btn.getAttribute("data-del"))));
+      });
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    async function editBook(id) {
+      const data = await api("/api/books/" + id);
+      if (!data.success) {
+        showMsg(msg, data.message || "Book not found", "err");
+        return;
+      }
+      const b = data.book;
+      document.getElementById("book_id").value = b.book_id;
+      document.getElementById("title").value = b.title;
+      document.getElementById("author").value = b.author;
+      document.getElementById("category").value = b.category;
+      document.getElementById("quantity").value = b.quantity;
+      document.getElementById("form-title").textContent = "Update Book";
+      document.getElementById("save-btn").textContent = "Update Details";
+      clearMsg(msg);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    async function deleteBook(id) {
+      if (!confirm("Delete this book?")) return;
+      const data = await api("/api/books/" + id, { method: "DELETE" });
+      showMsg(msg, data.message, data.success ? "ok" : "err");
+      loadBooks();
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const id = document.getElementById("book_id").value;
+      const payload = {
+        title: document.getElementById("title").value.trim(),
+        author: document.getElementById("author").value.trim(),
+        category: document.getElementById("category").value.trim(),
+        quantity: document.getElementById("quantity").value,
+      };
+      const data = id
+        ? await api("/api/books/" + id, { method: "PUT", body: JSON.stringify(payload) })
+        : await api("/api/books", { method: "POST", body: JSON.stringify(payload) });
+      showMsg(msg, data.message, data.success ? "ok" : "err");
+      if (data.success) {
+        resetForm();
+        if (data.message) showMsg(msg, data.message, "ok");
+        loadBooks();
+      }
+    });
+
+    loadBooks();
+  </script>
+</body>
+</html>

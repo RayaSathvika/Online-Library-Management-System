@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Return Books — Library Management</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Online Library Management</h1>
+    <nav id="main-nav" class="nav"></nav>
+  </header>
+  <main class="container">
+    <div class="card">
+      <h2>Return Book</h2>
+      <p class="subtitle">Select an issued book to mark it as returned. Overdue fine is calculated automatically.</p>
+      <form id="return-form">
+        <div class="form-grid">
+          <div class="full">
+            <label for="issue_id">Issued book</label>
+            <select id="issue_id" required></select>
+          </div>
+        </div>
+        <div class="actions">
+          <button type="submit">Return Book</button>
+        </div>
+      </form>
+      <div id="msg" class="msg"></div>
+    </div>
+
+    <div class="card">
+      <h2>Recently Returned</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Issue ID</th>
+              <th>Book</th>
+              <th>Student</th>
+              <th>Due Date</th>
+              <th>Return Date</th>
+              <th>Fine</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="returned-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script>
+    renderNav("return");
+    const msg = document.getElementById("msg");
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    async function loadIssued() {
+      const data = await api("/api/issues?status=Issued");
+      const select = document.getElementById("issue_id");
+      if (!data.success || !data.issues.length) {
+        select.innerHTML = `<option value="">No issued books to return</option>`;
+        return;
+      }
+      select.innerHTML = data.issues
+        .map(
+          (i) =>
+            `<option value="${i.issue_id}">#${i.issue_id} — ${escapeHtml(i.title)} → ${escapeHtml(i.student_name)} (due ${i.due_date})</option>`
+        )
+        .join("");
+    }
+
+    async function loadReturned() {
+      const data = await api("/api/issues?status=Returned");
+      const tbody = document.getElementById("returned-body");
+      if (!data.success || !data.issues.length) {
+        tbody.innerHTML = `<tr><td colspan="7">No returned books yet.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = data.issues
+        .map(
+          (i) => `<tr>
+            <td>${i.issue_id}</td>
+            <td>${escapeHtml(i.title)}</td>
+            <td>${escapeHtml(i.student_name)}</td>
+            <td>${i.due_date}</td>
+            <td>${i.return_date || "—"}</td>
+            <td>${Number(i.fine || 0).toFixed(2)}</td>
+            <td><span class="badge returned">${escapeHtml(i.status)}</span></td>
+          </tr>`
+        )
+        .join("");
+    }
+
+    document.getElementById("return-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const issue_id = Number(document.getElementById("issue_id").value);
+      if (!issue_id) {
+        showMsg(msg, "Select an issued book", "err");
+        return;
+      }
+      const data = await api("/api/returns", {
+        method: "POST",
+        body: JSON.stringify({ issue_id }),
+      });
+      if (data.success) {
+        const fineNote =
+          data.fine > 0
+            ? ` Fine: ${Number(data.fine).toFixed(2)}`
+            : " No fine.";
+        showMsg(msg, (data.message || "Book returned") + "." + fineNote, "ok");
+        await loadIssued();
+        await loadReturned();
+      } else {
+        showMsg(msg, data.message || "Return failed", "err");
+      }
+    });
+
+    loadIssued().then(loadReturned);
+  </script>
+</body>
+</html>

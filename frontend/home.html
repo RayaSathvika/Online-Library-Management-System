@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Home — Library Management</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Online Library Management</h1>
+    <nav id="main-nav" class="nav"></nav>
+  </header>
+  <main class="container">
+    <div class="card">
+      <h2>Welcome</h2>
+      <p class="subtitle" id="welcome">Select a module below.</p>
+      <div class="home-grid">
+        <a href="books.html"><strong>Manage Books</strong><span>Add, update, and delete books</span></a>
+        <a href="search.html"><strong>Search Books</strong><span>Find books by title, author, or category</span></a>
+        <a href="students.html"><strong>Student Registration</strong><span>Register new students</span></a>
+        <a href="issue.html"><strong>Issue Books</strong><span>Issue books to students</span></a>
+        <a href="return.html"><strong>Return Books</strong><span>Process book returns</span></a>
+        <a href="fines.html"><strong>Overdue Fines</strong><span>Calculate and view fines</span></a>
+      </div>
+    </div>
+  </main>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script>
+    renderNav("home");
+    try {
+      const admin = JSON.parse(sessionStorage.getItem("admin") || "{}");
+      document.getElementById("welcome").textContent =
+        "Logged in as " + (admin.username || "admin") + ". Select a module below.";
+    } catch (_) {}
+  </script>
+</body>
+</html>

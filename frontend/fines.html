@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Overdue Fines — Library Management</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Online Library Management</h1>
+    <nav id="main-nav" class="nav"></nav>
+  </header>
+  <main class="container">
+    <div class="card">
+      <h2>Calculate Overdue Fines</h2>
+      <p class="subtitle" id="rate-line">Fine rate loads with the list below.</p>
+      <div class="actions">
+        <button type="button" id="refresh-btn">Recalculate Fines</button>
+      </div>
+      <div id="msg" class="msg"></div>
+    </div>
+
+    <div class="card">
+      <h2>Fine Summary</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Issue ID</th>
+              <th>Book</th>
+              <th>Student</th>
+              <th>Due Date</th>
+              <th>Status</th>
+              <th>Overdue Days</th>
+              <th>Fine</th>
+            </tr>
+          </thead>
+          <tbody id="fines-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script>
+    renderNav("fines");
+    const msg = document.getElementById("msg");
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    async function loadFines() {
+      clearMsg(msg);
+      const data = await api("/api/fines");
+      if (!data.success) {
+        showMsg(msg, data.message || "Failed to load fines", "err");
+        return;
+      }
+      document.getElementById("rate-line").textContent =
+        "Fine rate: " + data.fine_per_day + " per overdue day. Includes active overdue issues and returned books with fines.";
+
+      const tbody = document.getElementById("fines-body");
+      if (!data.fines.length) {
+        tbody.innerHTML = `<tr><td colspan="7">No overdue fines at this time.</td></tr>`;
+        showMsg(msg, "No overdue fines found.", "info");
+        return;
+      }
+
+      const total = data.fines.reduce((sum, f) => sum + (Number(f.calculated_fine) || 0), 0);
+      tbody.innerHTML = data.fines
+        .map(
+          (f) => `<tr>
+            <td>${f.issue_id}</td>
+            <td>${escapeHtml(f.title)}</td>
+            <td>${escapeHtml(f.student_name)}<br><small>${escapeHtml(f.email || "")}</small></td>
+            <td>${f.due_date}</td>
+            <td><span class="badge ${f.status === "Returned" ? "returned" : "issued"}">${escapeHtml(f.status)}</span></td>
+            <td>${f.overdue_days}</td>
+            <td><strong>${Number(f.calculated_fine).toFixed(2)}</strong></td>
+          </tr>`
+        )
+        .join("");
+      showMsg(msg, "Fines calculated. Total outstanding: " + total.toFixed(2), "ok");
+    }
+
+    document.getElementById("refresh-btn").addEventListener("click", loadFines);
+    loadFines();
+  </script>
+</body>
+</html>

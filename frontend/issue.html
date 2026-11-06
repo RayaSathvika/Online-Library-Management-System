@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Issue Books — Library Management</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Online Library Management</h1>
+    <nav id="main-nav" class="nav"></nav>
+  </header>
+  <main class="container">
+    <div class="card">
+      <h2>Issue Book</h2>
+      <p class="subtitle">Assign an available book to a registered student.</p>
+      <form id="issue-form">
+        <div class="form-grid">
+          <div>
+            <label for="book_id">Book</label>
+            <select id="book_id" required></select>
+          </div>
+          <div>
+            <label for="student_id">Student</label>
+            <select id="student_id" required></select>
+          </div>
+          <div>
+            <label for="due_date">Due date</label>
+            <input id="due_date" type="date" required />
+          </div>
+        </div>
+        <div class="actions">
+          <button type="submit">Issue Book</button>
+        </div>
+      </form>
+      <div id="msg" class="msg"></div>
+    </div>
+
+    <div class="card">
+      <h2>Currently Issued</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Issue ID</th>
+              <th>Book</th>
+              <th>Student</th>
+              <th>Issue Date</th>
+              <th>Due Date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="issues-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script>
+    renderNav("issue");
+    const msg = document.getElementById("msg");
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function defaultDueDate() {
+      const d = new Date();
+      d.setDate(d.getDate() + 14);
+      return d.toISOString().slice(0, 10);
+    }
+
+    async function loadOptions() {
+      const [booksRes, studentsRes] = await Promise.all([
+        api("/api/books"),
+        api("/api/students"),
+      ]);
+      const bookSelect = document.getElementById("book_id");
+      const studentSelect = document.getElementById("student_id");
+
+      const available = (booksRes.books || []).filter((b) => b.available_quantity > 0);
+      bookSelect.innerHTML = available.length
+        ? available
+            .map(
+              (b) =>
+                `<option value="${b.book_id}">${escapeHtml(b.title)} (avail: ${b.available_quantity})</option>`
+            )
+            .join("")
+        : `<option value="">No available books</option>`;
+
+      studentSelect.innerHTML = (studentsRes.students || []).length
+        ? studentsRes.students
+            .map((s) => `<option value="${s.student_id}">${escapeHtml(s.name)} — ${escapeHtml(s.email)}</option>`)
+            .join("")
+        : `<option value="">No students registered</option>`;
+
+      document.getElementById("due_date").value = defaultDueDate();
+    }
+
+    async function loadIssues() {
+      const data = await api("/api/issues?status=Issued");
+      const tbody = document.getElementById("issues-body");
+      if (!data.success || !data.issues.length) {
+        tbody.innerHTML = `<tr><td colspan="6">No books currently issued.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = data.issues
+        .map(
+          (i) => `<tr>
+            <td>${i.issue_id}</td>
+            <td>${escapeHtml(i.title)}</td>
+            <td>${escapeHtml(i.student_name)}</td>
+            <td>${i.issue_date}</td>
+            <td>${i.due_date}</td>
+            <td><span class="badge issued">${escapeHtml(i.status)}</span></td>
+          </tr>`
+        )
+        .join("");
+    }
+
+    document.getElementById("issue-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const payload = {
+        book_id: Number(document.getElementById("book_id").value),
+        student_id: Number(document.getElementById("student_id").value),
+        due_date: document.getElementById("due_date").value,
+      };
+      if (!payload.book_id || !payload.student_id) {
+        showMsg(msg, "Select a book and a student", "err");
+        return;
+      }
+      const data = await api("/api/issues", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      showMsg(msg, data.message, data.success ? "ok" : "err");
+      if (data.success) {
+        await loadOptions();
+        await loadIssues();
+      }
+    });
+
+    loadOptions().then(loadIssues);
+  </script>
+</body>
+</html>

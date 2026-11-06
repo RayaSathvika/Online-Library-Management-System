@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Search Books — Library Management</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Online Library Management</h1>
+    <nav id="main-nav" class="nav"></nav>
+  </header>
+  <main class="container">
+    <div class="card">
+      <h2>Search Books</h2>
+      <p class="subtitle">Search by title, author, or category.</p>
+      <form id="search-form">
+        <div class="form-grid">
+          <div class="full">
+            <label for="q">Search query</label>
+            <input id="q" placeholder="e.g. Alchemist, Clean Code, Fiction" required />
+          </div>
+        </div>
+        <div class="actions">
+          <button type="submit">Search</button>
+        </div>
+      </form>
+      <div id="msg" class="msg"></div>
+    </div>
+
+    <div class="card">
+      <h2>Results</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Title</th>
+              <th>Author</th>
+              <th>Category</th>
+              <th>Available</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="results-body">
+            <tr><td colspan="6">Enter a query to search.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script>
+    renderNav("search");
+    const msg = document.getElementById("msg");
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    document.getElementById("search-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const q = document.getElementById("q").value.trim();
+      clearMsg(msg);
+      const data = await api("/api/search?q=" + encodeURIComponent(q));
+      const tbody = document.getElementById("results-body");
+
+      if (!data.success) {
+        showMsg(msg, data.message || "Search failed", "err");
+        tbody.innerHTML = `<tr><td colspan="6">—</td></tr>`;
+        return;
+      }
+
+      if (!data.books || !data.books.length) {
+        showMsg(msg, data.message || "No matching book found. The book may be unavailable or does not exist.", "err");
+        tbody.innerHTML = `<tr><td colspan="6">${escapeHtml(data.message || "No matching book found.")}</td></tr>`;
+        return;
+      }
+
+      showMsg(msg, data.message || "Matching book displayed", "ok");
+      tbody.innerHTML = data.books
+        .map((b) => {
+          const avail = b.available_quantity > 0;
+          return `<tr>
+            <td>${b.book_id}</td>
+            <td>${escapeHtml(b.title)}</td>
+            <td>${escapeHtml(b.author)}</td>
+            <td>${escapeHtml(b.category)}</td>
+            <td>${b.available_quantity} / ${b.quantity}</td>
+            <td><span class="badge ${avail ? "avail" : "unavail"}">${avail ? "Available" : "Unavailable"}</span></td>
+          </tr>`;
+        })
+        .join("");
+    });
+  </script>
+</body>
+</html>

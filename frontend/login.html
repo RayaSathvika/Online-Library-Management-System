@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Login — Library Management</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="login-page">
+    <div class="login-box">
+      <h1>Online Library</h1>
+      <p class="hint">Admin login to manage books, students, and issues.</p>
+      <form id="login-form">
+        <div class="field">
+          <label for="username">Username</label>
+          <input id="username" name="username" type="text" autocomplete="username" required />
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required />
+        </div>
+        <button type="submit">Login</button>
+      </form>
+      <div id="msg" class="msg"></div>
+      <p class="hint" style="margin-top:1rem;margin-bottom:0">Default: admin / admin123</p>
+    </div>
+  </div>
+  <script src="js/auth.js"></script>
+  <script>
+    if (sessionStorage.getItem("admin")) {
+      window.location.href = "home.html";
+    }
+
+    document.getElementById("login-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById("msg");
+      clearMsg(msg);
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value;
+      const data = await api("/api/login", {
+        method: "POST",
+        body: JSON.stringify({ username, password }),
+      });
+      if (data.success) {
+        sessionStorage.setItem("admin", JSON.stringify(data.admin));
+        showMsg(msg, data.message || "Login successful", "ok");
+        setTimeout(() => (window.location.href = "home.html"), 600);
+      } else {
+        showMsg(msg, data.message || "Login failed", "err");
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+{
+  "name": "online-library-management-system",
+  "version": "1.0.0",
+  "description": "Online Library Management System with admin login, books, students, issue/return and fines",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "nodemon backend/server.js",
+    "test": "node backend/test-api.js"
+  },
+  "keywords": ["library", "management", "sqlite", "express"],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.3.0",
+    "sqlite3": "^6.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  },
+  "allowScripts": {
+    "sqlite3@6.0.1": true
+  }
+}
